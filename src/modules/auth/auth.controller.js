@@ -22,7 +22,10 @@ const login = async (req, res, next) => {
     }
 
     if (user.status === 'PENDING_APPROVAL') {
-      return res.status(403).json({ success: false, message: 'Account pending HR approval' });
+      const message = user.role === 'HR_ADMIN'
+        ? 'Account pending Super Admin approval'
+        : 'Account pending HR approval';
+      return res.status(403).json({ success: false, message });
     }
 
     if (user.status !== 'ACTIVE') {

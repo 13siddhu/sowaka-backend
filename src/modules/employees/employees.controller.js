@@ -3,20 +3,27 @@ const prisma = require('../../config/db');
 
 const listEmployees = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, search, departmentId } = req.query;
+    const { page = 1, limit = 100, search, departmentId, status, role } = req.query;
     const skip = (page - 1) * limit;
 
     const where = {
-      role: 'EMPLOYEE',
+      ...(role && { role }),
+      ...(status && { status }),
       ...(search && { name: { contains: search, mode: 'insensitive' } }),
       ...(departmentId && { departmentId })
     };
+
+    // If HR_ADMIN, usually they only manage employees
+    if (req.user.role === 'HR_ADMIN' && !role) {
+      where.role = 'EMPLOYEE';
+    }
 
     const employees = await prisma.user.findMany({
       where,
       skip: parseInt(skip),
       take: parseInt(limit),
-      select: { id: true, employeeId: true, name: true, email: true, departmentId: true, status: true, createdAt: true }
+      select: { id: true, employeeId: true, name: true, email: true, departmentId: true, status: true, role: true, createdAt: true },
+      orderBy: { createdAt: 'desc' }
     });
 
     const total = await prisma.user.count({ where });
@@ -67,6 +74,22 @@ const changeStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Role-based approval logic
+    if (req.user.role === 'HR_ADMIN') {
+      if (targetUser.role !== 'EMPLOYEE') {
+        return res.status(403).json({ success: false, message: 'HR can only approve Employees' });
+      }
+    } else if (req.user.role === 'SUPER_ADMIN') {
+      // Super admin can approve both HR and Employees
+    } else {
+      return res.status(403).json({ success: false, message: 'Unauthorized to change status' });
+    }
 
     await prisma.user.update({
       where: { id },

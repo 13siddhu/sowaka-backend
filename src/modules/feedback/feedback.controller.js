@@ -7,10 +7,68 @@ const getMyAssignments = async (req, res, next) => {
     const assignments = await prisma.feedbackSubmission.findMany({
       where: { userId: req.user.id },
       include: {
-        campaign: { select: { title: true, description: true, endDate: true, status: true, isAnonymous: true } }
-      }
+        campaign: {
+          include: {
+            form: {
+              include: {
+                questions: {
+                  include: { options: true },
+                  orderBy: { orderIndex: 'asc' }
+                }
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
     });
     res.json({ success: true, data: assignments });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getAllFeedbacks = async (req, res, next) => {
+  try {
+    const { campaignId, page = 1, limit = 20 } = req.query;
+    const skip = (page - 1) * limit;
+
+    const where = {
+      status: 'SUBMITTED',
+      ...(campaignId && { campaignId })
+    };
+
+    const submissions = await prisma.feedbackSubmission.findMany({
+      where,
+      skip: parseInt(skip),
+      take: parseInt(limit),
+      include: {
+        campaign: { select: { title: true, isAnonymous: true } },
+        user: { select: { name: true, email: true, employeeId: true, department: { select: { name: true } } } },
+        answers: { include: { question: { select: { text: true, type: true } } } }
+      },
+      orderBy: { submittedAt: 'desc' }
+    });
+
+    // Handle anonymity
+    const sanitizedSubmissions = submissions.map(sub => {
+      if (sub.campaign.isAnonymous) {
+        return {
+          ...sub,
+          userId: 'ANONYMOUS',
+          user: { name: 'Anonymous', department: sub.user.department } // Keep department maybe? Usually anonymized fully or kept partial.
+        };
+      }
+      return sub;
+    });
+
+    const total = await prisma.feedbackSubmission.count({ where });
+
+    res.json({
+      success: true,
+      data: sanitizedSubmissions,
+      pagination: { total, page: parseInt(page), limit: parseInt(limit) }
+    });
   } catch (error) {
     next(error);
   }
@@ -98,4 +156,4 @@ const submitFeedback = async (req, res, next) => {
   }
 };
 
-module.exports = { getMyAssignments, getSubmission, submitFeedback };
+module.exports = { getMyAssignments, getSubmission, submitFeedback, getAllFeedbacks };
