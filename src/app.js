@@ -33,6 +33,11 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date() });
 });
 
+// Root route
+app.get('/', (req, res) => {
+  res.send('<h1>Sowaka Backend is Live! 🚀</h1><p>Check out the API Docs at <a href="/api-docs">/api-docs</a></p>');
+});
+
 // Import routes
 const authRoutes = require('./modules/auth/auth.routes');
 const employeeRoutes = require('./modules/employees/employees.routes');
