@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  EMPLOYEE
+  HR_ADMIN
+  SUPER_ADMIN
+}
+
+enum Status {
+  PENDING_APPROVAL
+  ACTIVE
+  INACTIVE
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum QuestionType {
+  TEXT
+  TEXTAREA
+  RATING
+  YES_NO
+  MULTIPLE_CHOICE
+  SINGLE_SELECT
+  DROPDOWN
+}
+
+enum SubmissionStatus {
+  ASSIGNED
+  PENDING
+  DRAFT
+  SUBMITTED
+  EXPIRED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  employeeId   String   @unique
+  name         String
+  email        String   @unique
+  password     String
+  role         Role     @default(EMPLOYEE)
+  departmentId String?
+  status       Status   @default(ACTIVE)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department   Department? @relation(fields: [departmentId], references: [id])
+  
+  // Relations
+  campaignsCreated    Campaign[]
+  submissions         FeedbackSubmission[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+}
+
+model Department {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  teams       Team[]
+}
+
+model Team {
+  id           String     @id @default(uuid())
+  name         String
+  description  String?
+  departmentId String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  department   Department @relation(fields: [departmentId], references: [id])
+}
+
+model Campaign {
+  id          String         @id @default(uuid())
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  status      CampaignStatus @default(DRAFT)
+  isAnonymous Boolean        @default(false)
+  createdBy   String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  author      User           @relation(fields: [createdBy], references: [id])
+  form        Form?
+  assignments FeedbackSubmission[]
+}
+
+model Form {
+  id         String   @id @default(uuid())
+  campaignId String   @unique
+  title      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  questions  Question[]
+}
+
+model Question {
+  id           String       @id @default(uuid())
+  formId       String
+  text         String
+  type         QuestionType
+  isRequired   Boolean      @default(true)
+  orderIndex   Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  form         Form         @relation(fields: [formId], references: [id], onDelete: Cascade)
+  options      QuestionOption[]
+  answers      FeedbackAnswer[]
+}
+
+model QuestionOption {
+  id         String   @id @default(uuid())
+  questionId String
+  text       String
+  orderIndex Int      @default(0)
+
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model FeedbackSubmission {
+  id         String           @id @default(uuid())
+  campaignId String
+  userId     String
+  status     SubmissionStatus @default(ASSIGNED)
+  submittedAt DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  campaign   Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers    FeedbackAnswer[]
+}
+
+model FeedbackAnswer {
+  id             String             @id @default(uuid())
+  submissionId   String
+  questionId     String
+  answerText     String?
+  answerNumeric  Int?
+  answerArray    String[]           // For multiple choice
+  sentimentScore Float?
+  sentimentLabel String?            // POSITIVE, NEUTRAL, NEGATIVE
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  submission     FeedbackSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  question       Question           @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  type      String   // NEW_CAMPAIGN, REMINDER, SUCCESS, DEADLINE
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  metadata  Json?
+  timestamp DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+}

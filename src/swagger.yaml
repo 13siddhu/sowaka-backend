@@ -1,0 +1,84 @@
+openapi: 3.0.0
+info:
+  title: Employee Feedback Management System API
+  version: 1.0.0
+  description: Backend APIs for HR Feedback System
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local server
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      summary: Login
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: Login successful
+  /employees:
+    get:
+      summary: List employees
+      tags: [Employees]
+      responses:
+        '200':
+          description: Successful response
+    post:
+      summary: Add new employee
+      tags: [Employees]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                employeeId: { type: string }
+                name: { type: string }
+                email: { type: string }
+                password: { type: string }
+                departmentId: { type: string }
+                role: { type: string }
+      responses:
+        '200':
+          description: Employee created
+  /campaigns:
+    get:
+      summary: List campaigns
+      tags: [Campaigns]
+      responses:
+        '200':
+          description: Successful response
+    post:
+      summary: Create campaign
+      tags: [Campaigns]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                startDate: { type: string }
+                endDate: { type: string }
+                isAnonymous: { type: boolean }
+      responses:
+        '200':
+          description: Campaign created
